@@ -1,0 +1,7 @@
+.ve
+.env
+.python-version
+build
+knowledge
+local_rag_agent.*
+vector_db
