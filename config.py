@@ -12,6 +12,7 @@ class AppConfig:
     embedding_model: str
     vector_db_dir: str
     knowledge_dir: str
+    api_key: str = "lm-studio"
     chunk_size: int = 1000
     chunk_overlap: int = 150
     
@@ -28,5 +29,7 @@ config = AppConfig(
 
     vector_db_dir=os.getenv("DB_DIR"),
     
-    knowledge_dir=os.getenv("KNOWLEDGE_DIR")
+    knowledge_dir=os.getenv("KNOWLEDGE_DIR"),
+
+    api_key=os.getenv("OPENAI_API_KEY", "lm-studio"),
 )
