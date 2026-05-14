@@ -12,25 +12,26 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
 )
 
-SYSTEM_PROMPT = (
-    "SYSTEM RULE: You are a local "
-    "documentation search engine. "
-    "You are ONLY allowed to use "
-    "the provided Context to answer. "
-    "If the answer is not explicitly "
-    "written in the Context, "
-    "you MUST say: "
-    "'Information not found "
-    "in local documents.'\n\n"
+SYSTEM_PROMPT = """You are a helpful local documentation assistant.
+    <STRICT RULES>
+        - ONLY use the provided Context to answer the question.
+        - If the answer is not in the Context, say exactly: "Information not found in local documents."
+        - Do not add any external knowledge.
+    </STRICT RULES>
 
-    "CRITICAL: Do not provide "
-    "general knowledge, code, "
-    "or advice unless it is "
-    "directly extracted from "
-    "the Context below.\n\n"
+    <context>
+        {context}
+    </context>
 
-    "Context:\n{context}"
-)
+    Question: {input}
+
+    Respond in valid JSON format only. Use this exact structure and do not add any extra text:
+
+    {{
+        "thinking": "Brief and concise step-by-step reasoning using only the context",
+        "answer": "Clear, well-formatted final answer to the user"
+    }}
+    """
 
 class RagPipeline:
 
@@ -106,30 +107,42 @@ class RagPipeline:
             "sources": list(set(sources)),
         }
 
+    def _event(self, event_type: str, **data):
+        return f"data: {json.dumps({'type': event_type, **data})}\n\n"
+
     def ask_stream(
         self,
         question: str,
     ):
-        docs = self.retriever.invoke(question)
+        try:
+            yield self._event("status", message="🔍 Searching relevant documents...")
 
-        sources = [
-            doc.metadata.get("source", "Unknown")
-            for doc in docs
-        ]
-        unique_sources = list(set(sources))
+            docs = self.retriever.invoke(question)
 
-        yield f"data: {json.dumps({'type': 'sources', 'sources': unique_sources})}\n\n"
+            sources = [
+                doc.metadata.get("source", "Unknown")
+                for doc in docs
+            ]
+            unique_sources = list(set(sources))
 
-        combine_inputs = {
-            "input": question,
-            "context": docs,
-        }
+            yield f"data: {json.dumps({'type': 'sources', 'sources': unique_sources})}\n\n"
+            yield self._event("status", message=f"📚 Found {len(docs)} relevant documents")
 
-        for chunk in self.combine_docs_chain.stream(
-            combine_inputs
-        ):
-            if chunk:
-                chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
-                yield f"data: {json.dumps({'type': 'content', 'delta': chunk_str})}\n\n"
+            yield self._event("status", message="🤔 Analyzing context and thinking...")
 
-        yield "data: {\"type\": \"done\"}\n\n"
+            combine_inputs = {
+                "input": question,
+                "context": docs,
+            }
+
+            for chunk in self.combine_docs_chain.stream(
+                combine_inputs
+            ):
+                if chunk:
+                    chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                    yield f"data: {json.dumps({'type': 'content', 'delta': chunk_str})}\n\n"
+
+            yield self._event("done", message="Done")
+
+        except Exception as e:
+            yield self._event("error", message=str(e))
