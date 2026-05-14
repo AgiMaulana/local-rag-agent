@@ -188,8 +188,8 @@ async def stream_response(
         yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {'role': 'assistant'}, 'finish_reason': None}]})}\n\n"
 
         question = extract_user_question([msg.model_dump() for msg in messages])
-        docs = pipeline.retriever.invoke(question)
 
+        docs = pipeline.retriever.invoke(question)
         sources = list(set(doc.metadata.get("source", "Unknown") for doc in docs))
 
         combine_inputs = {
@@ -198,24 +198,28 @@ async def stream_response(
         }
 
         full_content = ""
-        prompt_tokens = pipeline.estimate_tokens(question)
+        buffer = ""
 
         for chunk in pipeline.combine_docs_chain.stream(combine_inputs):
             if chunk:
-                chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                if hasattr(chunk, 'content'):
+                    chunk_str = chunk.content
+                else:
+                    chunk_str = str(chunk)
+
                 full_content += chunk_str
                 yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {'content': chunk_str}, 'finish_reason': None}]})}\n\n"
 
         if sources:
-            sources_line = f"\n\nSources: {', '.join(sources)}"
+            sources_line = f"\n\n**Sources:** {', '.join(sources)}"
             full_content += sources_line
             yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {'content': sources_line}, 'finish_reason': None}]})}\n\n"
 
         completion_tokens = pipeline.estimate_tokens(full_content)
-
-        yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': prompt_tokens + completion_tokens}})}\n\n"
-
+        yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 0, 'completion_tokens': completion_tokens, 'total_tokens': completion_tokens}})}\n\n"
         yield "data: [DONE]\n\n"
 
     except Exception as e:
-        yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'internal_error', 'param': None, 'code': 500}})}\n\n"
+        error_msg = f"Error: {str(e)}"
+        yield f"data: {json.dumps({'id': request_id, 'object': 'chat.completion.chunk', 'created': created, 'model': model, 'choices': [{'index': 0, 'delta': {'content': error_msg}, 'finish_reason': 'stop'}]})}\n\n"
+        yield "data: [DONE]\n\n"

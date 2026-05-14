@@ -16,26 +16,29 @@ from langchain_core.prompts import (
     ChatPromptTemplate,
 )
 
-SYSTEM_PROMPT = """You are a helpful local documentation assistant.
-    <STRICT RULES>
-        - ONLY use the provided Context to answer the question.
-        - If the answer is not in the Context, say exactly: "Information not found in local documents."
-        - Do not add any external knowledge.
-    </STRICT RULES>
+SYSTEM_PROMPT = """You are a helpful, concise, and accurate local documentation assistant.
 
-    <context>
-        {context}
-    </context>
+<STRICT RULES>
+- ONLY use the information from the provided Context to answer.
+- If the answer cannot be found in the Context, respond with: "Information not found in local documents."
+- Do not hallucinate or use external knowledge.
+- Be clear, professional, and well-formatted.
+- Use markdown when helpful (bold, lists, code blocks, etc.).
+</STRICT RULES>
 
-    Question: {input}
+<context>
+{context}
+</context>
 
-    Respond in valid JSON format only. Use this exact structure and do not add any extra text:
+Answer the user's question based on the context above. Show your reasoning process before giving the final answer.
 
-    {{
-        "thinking": "Brief and concise step-by-step reasoning using only the context",
-        "answer": "Clear, well-formatted final answer to the user"
-    }}
-    """
+Format your response exactly as:
+
+<think>
+[Your step-by-step reasoning using only the provided context]
+</think>
+
+[Your final answer]"""
 
 
 class RagPipeline:
@@ -96,7 +99,16 @@ class RagPipeline:
             for doc in response["context"]
         ]
 
-        return response["answer"], list(set(sources))
+        answer = response["answer"]
+
+        if '{"thinking"' in answer or '"answer"' in answer:
+            try:
+                data = json.loads(answer)
+                answer = data.get("answer", answer)
+            except json.JSONDecodeError:
+                pass
+
+        return answer, list(set(sources))
 
     def ask_stream(self, question: str):
         try:
