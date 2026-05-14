@@ -15,6 +15,7 @@ class AppConfig:
     api_key: str = "lm-studio"
     chunk_size: int = 1000
     chunk_overlap: int = 150
+    llm_streaming: bool = True
     
 config = AppConfig(
     lm_studio_base_url=os.getenv(

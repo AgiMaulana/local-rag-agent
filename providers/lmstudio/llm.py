@@ -23,7 +23,7 @@ class LmStudioLlmProvider(
             model=config.model,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
-            streaming=False,
+            streaming=config.streaming,
         )
 
     def get_client(self):

@@ -36,6 +36,7 @@ def create_llm_provider():
         model=config.llm_model,
         api_key=config.api_key,
         base_url=config.lm_studio_base_url,
+        streaming=config.llm_streaming,
     )
 
     return LmStudioLlmProvider(
