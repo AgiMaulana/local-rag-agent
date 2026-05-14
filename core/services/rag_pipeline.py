@@ -1,4 +1,8 @@
 import json
+from typing import List, Optional
+
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.documents import Document
 
 from langchain_classic.chains import (
     create_retrieval_chain,
@@ -33,6 +37,7 @@ SYSTEM_PROMPT = """You are a helpful local documentation assistant.
     }}
     """
 
+
 class RagPipeline:
 
     def __init__(
@@ -41,30 +46,17 @@ class RagPipeline:
         vector_store_provider,
         streaming: bool = False,
     ):
-
-        self.llm = (
-            llm_provider.get_client()
-        )
-
+        self.llm = llm_provider.get_client()
         self.streaming = streaming
 
-        self.retriever = (
-            vector_store_provider
-            .as_retriever()
-        )
+        self.retriever = vector_store_provider.as_retriever()
 
         prompt = (
             ChatPromptTemplate
             .from_messages(
                 [
-                    (
-                        "system",
-                        SYSTEM_PROMPT,
-                    ),
-                    (
-                        "human",
-                        "{input}",
-                    ),
+                    ("system", SYSTEM_PROMPT),
+                    ("human", "{input}"),
                 ]
             )
         )
@@ -83,22 +75,11 @@ class RagPipeline:
             )
         )
 
-    def ask(
-        self,
-        question: str,
-    ):
-
-        response = self.chain.invoke(
-            {
-                "input": question
-            }
-        )
+    def ask(self, question: str) -> dict:
+        response = self.chain.invoke({"input": question})
 
         sources = [
-            doc.metadata.get(
-                "source",
-                "Unknown",
-            )
+            doc.metadata.get("source", "Unknown")
             for doc in response["context"]
         ]
 
@@ -107,42 +88,81 @@ class RagPipeline:
             "sources": list(set(sources)),
         }
 
-    def _event(self, event_type: str, **data):
-        return f"data: {json.dumps({'type': event_type, **data})}\n\n"
+    def ask_with_sources(self, question: str) -> tuple[str, List[str]]:
+        response = self.chain.invoke({"input": question})
 
-    def ask_stream(
-        self,
-        question: str,
-    ):
+        sources = [
+            doc.metadata.get("source", "Unknown")
+            for doc in response["context"]
+        ]
+
+        return response["answer"], list(set(sources))
+
+    def ask_stream(self, question: str):
         try:
-            yield self._event("status", message="🔍 Searching relevant documents...")
-
             docs = self.retriever.invoke(question)
-
-            sources = [
-                doc.metadata.get("source", "Unknown")
-                for doc in docs
-            ]
-            unique_sources = list(set(sources))
-
-            yield f"data: {json.dumps({'type': 'sources', 'sources': unique_sources})}\n\n"
-            yield self._event("status", message=f"📚 Found {len(docs)} relevant documents")
-
-            yield self._event("status", message="🤔 Analyzing context and thinking...")
+            sources = list(set(doc.metadata.get("source", "Unknown") for doc in docs))
 
             combine_inputs = {
                 "input": question,
                 "context": docs,
             }
 
-            for chunk in self.combine_docs_chain.stream(
-                combine_inputs
-            ):
+            full_content = ""
+            for chunk in self.combine_docs_chain.stream(combine_inputs):
                 if chunk:
                     chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
-                    yield f"data: {json.dumps({'type': 'content', 'delta': chunk_str})}\n\n"
-
-            yield self._event("done", message="Done")
+                    full_content += chunk_str
+                    yield chunk_str, sources
 
         except Exception as e:
-            yield self._event("error", message=str(e))
+            yield f"Error: {str(e)}", []
+
+    def stream(self, question: str):
+        for content, sources in self.ask_stream(question):
+            yield content
+
+    def estimate_tokens(self, text: str) -> int:
+        return len(text) // 4
+
+
+def convert_openai_messages(messages: List[dict]) -> tuple[str, List[Document]]:
+    system_prompt = ""
+    user_question = ""
+
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+
+        if role == "system":
+            system_prompt += content + "\n"
+        elif role == "user":
+            user_question = content
+        elif role == "assistant":
+            pass
+
+    return user_question or system_prompt
+
+
+def extract_user_question(messages: List[dict]) -> str:
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            return msg.get("content", "")
+    return ""
+
+
+def format_rag_response(response: dict) -> str:
+    if isinstance(response, dict):
+        answer = response.get("answer", str(response))
+    else:
+        answer = str(response)
+
+    thinking = response.get("thinking") if isinstance(response, dict) else None
+    if thinking:
+        return f"{answer}"
+
+    sources = response.get("sources", []) if isinstance(response, dict) else []
+    if sources:
+        return f"{answer}"
+
+    return answer
