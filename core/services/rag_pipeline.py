@@ -1,3 +1,5 @@
+import json
+
 from langchain_classic.chains import (
     create_retrieval_chain,
 )
@@ -36,11 +38,14 @@ class RagPipeline:
         self,
         llm_provider,
         vector_store_provider,
+        streaming: bool = False,
     ):
 
         self.llm = (
             llm_provider.get_client()
         )
+
+        self.streaming = streaming
 
         self.retriever = (
             vector_store_provider
@@ -63,7 +68,7 @@ class RagPipeline:
             )
         )
 
-        combine_docs_chain = (
+        self.combine_docs_chain = (
             create_stuff_documents_chain(
                 self.llm,
                 prompt,
@@ -73,7 +78,7 @@ class RagPipeline:
         self.chain = (
             create_retrieval_chain(
                 self.retriever,
-                combine_docs_chain,
+                self.combine_docs_chain,
             )
         )
 
@@ -100,3 +105,31 @@ class RagPipeline:
             "answer": response["answer"],
             "sources": list(set(sources)),
         }
+
+    def ask_stream(
+        self,
+        question: str,
+    ):
+        docs = self.retriever.invoke(question)
+
+        sources = [
+            doc.metadata.get("source", "Unknown")
+            for doc in docs
+        ]
+        unique_sources = list(set(sources))
+
+        yield f"data: {json.dumps({'type': 'sources', 'sources': unique_sources})}\n\n"
+
+        combine_inputs = {
+            "input": question,
+            "context": docs,
+        }
+
+        for chunk in self.combine_docs_chain.stream(
+            combine_inputs
+        ):
+            if chunk:
+                chunk_str = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                yield f"data: {json.dumps({'type': 'content', 'delta': chunk_str})}\n\n"
+
+        yield "data: {\"type\": \"done\"}\n\n"
