@@ -15,5 +15,9 @@ class VectorStoreProvider(Protocol):
         documents,
         embedding,
     ):
-       """Ingests the given documents into the vector store using the provided embedding function."""
-       pass
+        """Ingests the given documents into the vector store using the provided embedding function."""
+        pass
+
+    def delete_by_source(self, source: str):
+        """Deletes all documents that match the given source path in metadata."""
+        pass

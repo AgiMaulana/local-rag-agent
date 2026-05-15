@@ -13,6 +13,10 @@ from ingestion.services import (
     IngestionPipeline,
 )
 
+from ingestion.manifest import (
+    IngestManifest,
+)
+
 __all__ = [
     "DocumentLoaderService",
     "CsvLoaderService",
@@ -20,4 +24,5 @@ __all__ = [
     "RecursiveChunker",
     "SemanticChunker",
     "IngestionPipeline",
+    "IngestManifest",
 ]
