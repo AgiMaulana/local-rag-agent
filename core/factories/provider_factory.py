@@ -21,8 +21,8 @@ def create_embedding_provider():
 
     embedding_config = ModelConfig(
         model=config.embedding_model,
-        api_key=config.api_key,
-        base_url=config.lm_studio_base_url,
+        api_key=config.embedding_api_key,
+        base_url=config.embedding_base_url,
     )
 
     return LmStudioEmbeddingProvider(
@@ -34,8 +34,8 @@ def create_llm_provider():
 
     llm_config = ModelConfig(
         model=config.llm_model,
-        api_key=config.api_key,
-        base_url=config.lm_studio_base_url,
+        api_key=config.llm_api_key,
+        base_url=config.llm_base_url,
         streaming=config.llm_streaming,
     )
 

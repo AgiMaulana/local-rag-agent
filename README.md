@@ -33,18 +33,31 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Copy `.env.sample` to `.env` and configure:
+Copy `.env.sample` to `.env` and fill in the required values:
 
 ```env
-# LM Studio API endpoint
-LM_STUDIO_BASE_URL="http://localhost:1234/v1"
+# LLM Configuration
+LLM_BASE_URL="http://localhost:1234/v1"
+LLM_MODEL="google/gemma-4-e4b"
+LLM_API_KEY="lm-studio"
 
-# Directory containing your documents
+# Embedding Configuration
+EMBEDDING_BASE_URL="http://localhost:1234/v1"
+EMBEDDING_MODEL="text-embedding-nomic-embed-text-v1.5"
+OPENAI_API_KEY="lm-studio"
+
+# Directories
 KNOWLEDGE_DIR="./knowledge"
-
-# Vector database directory
 DB_DIR="./vector_db"
+
+# Optional Configuration
+API_PREFIX="/v1"
+CORS_ORIGINS="*"
 ```
+
+### Provider Compatibility
+
+Both `LLM_BASE_URL` and `EMBEDDING_BASE_URL` must point to providers that follow the OpenAI API specification. In the current PoC setup, both can point to the same LM Studio instance. For production, you can configure them to use different providers (e.g., LM Studio for LLM and a cloud embedding service like OpenAI, Cohere, or another local provider).
 
 ## Usage
 
