@@ -5,6 +5,10 @@ from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredMarkdownLoader,
     CSVLoader,
+    UnstructuredWordDocumentLoader,
+    UnstructuredPowerPointLoader,
+    UnstructuredExcelLoader,
+    UnstructuredEPubLoader,
 )
 
 from ingestion.loaders.json_loader import (
@@ -26,6 +30,13 @@ class DocumentLoaderService:
             ".txt": TextLoader,
             ".md": UnstructuredMarkdownLoader,
             ".csv": CSVLoader,
+            ".doc": UnstructuredWordDocumentLoader,
+            ".docx": UnstructuredWordDocumentLoader,
+            ".ppt": UnstructuredPowerPointLoader,
+            ".pptx": UnstructuredPowerPointLoader,
+            ".xls": UnstructuredExcelLoader,
+            ".xlsx": UnstructuredExcelLoader,
+            ".epub": UnstructuredEPubLoader,
         }
 
     def _load_json(self, file_path: str):
