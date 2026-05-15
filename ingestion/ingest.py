@@ -1,3 +1,4 @@
+import argparse
 import sys
 import os
 
@@ -28,6 +29,22 @@ def on_progress(message: str, progress: int):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Local RAG Agent - Ingestion",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Force full re-ingestion of all files (ignore manifest)",
+    )
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Specific file(s) to ingest (relative to KNOWLEDGE_DIR)",
+    )
+
+    args = parser.parse_args()
+
     print("🚀 Local RAG Agent - Ingestion")
     print("=" * 40)
 
@@ -51,7 +68,15 @@ def main():
         on_progress=on_progress,
     )
 
-    pipeline.run()
+    if args.all:
+        print("⚡ Full re-ingestion mode (ignoring manifest)")
+        pipeline.run_all(force=True)
+    elif args.files:
+        for file_rel in args.files:
+            pipeline.run_file(file_rel)
+    else:
+        print("🔍 Smart ingestion mode (detect changes)")
+        pipeline.run()
 
 
 if __name__ == "__main__":

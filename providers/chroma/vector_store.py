@@ -30,5 +30,7 @@ class ChromaVectorStoreProvider(
         documents,
         embedding,
     ):
-        """Ingests the given documents into the vector store using the provided embedding function."""
         self.client.add_documents(documents=documents)
+
+    def delete_by_source(self, source: str):
+        self.client.delete(where={"source": {"$eq": source}})

@@ -94,3 +94,31 @@ class DocumentLoaderService:
                     docs.extend(loaded_docs)
 
         return docs
+
+    def load_file(self, file_path: str):
+        file_path = os.path.abspath(file_path)
+        file_name = os.path.basename(file_path)
+        ext = os.path.splitext(file_name)[1].lower()
+
+        if ext == ".json":
+            try:
+                print(f"📖 Loading {file_path}")
+                return self._load_json(file_path)
+            except Exception as e:
+                print(f"⚠️ Failed to load {file_path}: {e}")
+                return []
+        elif ext not in self._loader_map:
+            return []
+        else:
+            try:
+                print(f"📖 Loading {file_path}")
+                loader = self._loader_map[ext](file_path)
+                loaded_docs = loader.load()
+            except Exception as e:
+                print(f"⚠️ Failed to load {file_path}: {e}")
+                return []
+
+            for doc in loaded_docs:
+                doc.metadata["source"] = file_path
+
+            return loaded_docs
