@@ -24,3 +24,11 @@ class ChromaVectorStoreProvider(
 
     def as_retriever(self):
         return self.client.as_retriever()
+
+    def from_documents(
+        self,
+        documents,
+        embedding,
+    ):
+        """Ingests the given documents into the vector store using the provided embedding function."""
+        self.client.add_documents(documents=documents)
